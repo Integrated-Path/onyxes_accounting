@@ -1,0 +1,61 @@
+<odoo>
+	<data>
+
+		<record id="sale_order_form_onyxes" model="ir.ui.view">
+			<field name="name">sale_order_form_onyxes</field>
+			<field name="model">sale.order</field>
+			<field name="inherit_id" ref="sale.view_order_form"/>
+			<field name="arch" type="xml">
+				<xpath expr="//field[@name='payment_term_id']" position="after">
+					<field name="invoicing_policy_id"/>
+					<field name="invoices_created_by_policy" invisible="1"/>
+					<field name="new_invoice_status" invisible="1"/>
+				</xpath>
+				
+				
+				<xpath expr="//button[3]" position="attributes">
+					<attribute name="attrs">{'invisible': ['|', ('new_invoice_status', '!=', 'to invoice')]}</attribute>
+				</xpath>
+				<xpath expr="//button[4]" position="attributes">
+					<attribute name="attrs">{'invisible': ['|', ('new_invoice_status', '!=', 'no'), ('state', '!=', 'sale')]}</attribute>
+				</xpath>
+
+			</field>
+		</record>
+
+		<record id="sale_quotation_tree_onyxes" model="ir.ui.view">
+			<field name="name">sale_order_tree_onyxes</field>
+			<field name="model">sale.order</field>
+			<field name="inherit_id" ref="sale.view_quotation_tree"/>
+			<field name="arch" type="xml">
+				<xpath expr="//field[@name='invoice_status']" position="attributes">
+					<attribute name="invisible">1</attribute>
+				</xpath>
+				<xpath expr="//field[@name='invoice_status']" position="after">
+					<field name="new_invoice_status"/>
+				</xpath>
+			</field>
+		</record>
+
+		<record id="sale_order_tree_onyxes" model="ir.ui.view">
+			<field name="name">sale_order_tree_onyxes</field>
+			<field name="model">sale.order</field>
+			<field name="inherit_id" ref="sale.view_order_tree"/>
+			<field name="arch" type="xml">
+				<xpath expr="//field[@name='invoice_status']" position="attributes">
+					<attribute name="invisible">1</attribute>
+				</xpath>
+				<xpath expr="//field[@name='invoice_status']" position="after">
+					<field name="new_invoice_status"/>
+				</xpath>
+			</field>
+		</record>
+
+
+		<record id="sale.action_orders_to_invoice" model="ir.actions.act_window">
+			<field name="domain">[('new_invoice_status','=','to invoice')]</field>
+		</record>
+
+
+	</data>
+</odoo>

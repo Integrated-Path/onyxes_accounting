@@ -1,0 +1,60 @@
+<odoo>
+  <data>
+    <!-- explicit list view definition -->
+<!--
+    <record model="ir.ui.view" id="onyxes_accounting.list">
+      <field name="name">onyxes_accounting list</field>
+      <field name="model">onyxes_accounting.onyxes_accounting</field>
+      <field name="arch" type="xml">
+        <tree>
+          <field name="name"/>
+          <field name="value"/>
+          <field name="value2"/>
+        </tree>
+      </field>
+    </record>
+-->
+
+    <!-- actions opening views on models -->
+
+    <record model="ir.actions.act_window" id="onyxes_accounting.account_invoicing_policy_window">
+      <field name="name">Invoicing Policy</field>
+      <field name="res_model">account.invoicing.policy</field>
+      <field name="view_mode">tree,form</field>
+    </record>
+
+
+    <!-- server action to the one above -->
+<!--
+    <record model="ir.actions.server" id="onyxes_accounting.action_server">
+      <field name="name">onyxes_accounting server</field>
+      <field name="model_id" ref="model_onyxes_accounting_onyxes_accounting"/>
+      <field name="state">code</field>
+      <field name="code">
+        action = {
+          "type": "ir.actions.act_window",
+          "view_mode": "tree,form",
+          "res_model": model._name,
+        }
+      </field>
+    </record>
+-->
+
+    <!-- Top menu item -->
+<!--
+    <menuitem name="onyxes_accounting" id="onyxes_accounting.menu_root"/>
+-->
+    <!-- menu categories -->
+<!--
+    <menuitem name="Menu 1" id="onyxes_accounting.menu_1" parent="onyxes_accounting.menu_root"/>
+    <menuitem name="Menu 2" id="onyxes_accounting.menu_2" parent="onyxes_accounting.menu_root"/>
+-->
+    <!-- actions -->
+
+    <menuitem name="Invoicing Policy" id="onyxes_accounting.account_invoicing_policy_menu" parent="account.account_invoicing_menu"
+              action="onyxes_accounting.account_invoicing_policy_window" sequence="16"/>
+    <!-- <menuitem name="Server to list" id="onyxes_accounting" parent="onyxes_accounting.menu_2"
+              action="onyxes_accounting.action_server"/> -->
+
+  </data>
+</odoo>
