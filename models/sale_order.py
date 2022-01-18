@@ -17,13 +17,19 @@ class SaleOrder(models.Model):
         ('to invoice', 'To Invoice'),
         ('no', 'Nothing to Invoice')
     ]
-    invoicing_policy_id = fields.Many2one("account.invoicing.policy")
+    invoicing_policy_id = fields.Many2one("account.invoicing.policy", readonly=True, states={'draft': [('readonly', False)] } )
     invoices_created_by_policy = fields.One2many(
         'account.move', 'policy_sale_order_id')
 
     new_invoice_status = fields.Selection(NEW_INVOICE_STATUS, 
         string='Invoice Status', compute='_get_new_invoice_status', readonly=True, copy=False, store=True)
 
+    @api.onchange("invoicing_policy_id")
+    def _handle_invoicing_policy_id_change(self):
+        if self.invoicing_policy_id:
+            self.payment_term_id = False
+        else:
+            pass
 
     def _create_invoices(self, grouped=False, final=False):
         """
@@ -49,6 +55,7 @@ class SaleOrder(models.Model):
 
             # Invoice values.
             invoice_vals = order._prepare_invoice()
+            invoice_vals['ref'] = f"{order.name} DAC"
 
             # Invoice line values (keep only necessary sections).
             for line in order.order_line:
@@ -129,33 +136,35 @@ class SaleOrder(models.Model):
             moves.invoicing_policy_id = order.invoicing_policy_id
             moves.policy_type = 'dac'
 
-            for order in self:
-                pac_invoice_line_vals = []
-                for line in order.order_line:
-                    pac_policy_discount = 100.00 - order.invoicing_policy_id.pac
-                    pac_invoice_line_vals.append(
-                        (0, 0, line._prepare_invoice_line_policy(policy_discount=pac_policy_discount)))
-            pac_values = [(5, 0, 0)]
-            pac_values += pac_invoice_line_vals
-            pac_invoice = moves.copy()
-            pac_invoice.write({'invoice_line_ids': pac_values})
-            order.invoices_created_by_policy += pac_invoice
-            pac_invoice.invoicing_policy_id = order.invoicing_policy_id
-            pac_invoice.policy_type = 'pac'
+            if order.invoicing_policy_id.pac > 0:
+                for order in self:
+                    pac_invoice_line_vals = []
+                    for line in order.order_line:
+                        pac_policy_discount = 100.00 - order.invoicing_policy_id.pac
+                        pac_invoice_line_vals.append(
+                            (0, 0, line._prepare_invoice_line_policy(policy_discount=pac_policy_discount)))
+                pac_values = [(5, 0, 0)]
+                pac_values += pac_invoice_line_vals
+                pac_invoice = moves.copy()
+                pac_invoice.write({'ref': f'{order.name} PAC', 'invoice_line_ids': pac_values})
+                order.invoices_created_by_policy += pac_invoice
+                pac_invoice.invoicing_policy_id = order.invoicing_policy_id
+                pac_invoice.policy_type = 'pac'
 
-            for order in self:
-                fac_invoice_line_vals = []
-                for line in order.order_line:
-                    fac_policy_discount = 100.00 - order.invoicing_policy_id.fac
-                    fac_invoice_line_vals.append(
-                        (0, 0, line._prepare_invoice_line_policy(policy_discount=fac_policy_discount)))
-            fac_values = [(5, 0, 0)]
-            fac_values += fac_invoice_line_vals
-            fac_invoice = moves.copy()
-            fac_invoice.write({'invoice_line_ids': fac_values})
-            order.invoices_created_by_policy += fac_invoice
-            fac_invoice.invoicing_policy_id = order.invoicing_policy_id
-            fac_invoice.policy_type = 'fac'
+            if order.invoicing_policy_id.fac > 0:
+                for order in self:
+                    fac_invoice_line_vals = []
+                    for line in order.order_line:
+                        fac_policy_discount = 100.00 - order.invoicing_policy_id.fac
+                        fac_invoice_line_vals.append(
+                            (0, 0, line._prepare_invoice_line_policy(policy_discount=fac_policy_discount)))
+                fac_values = [(5, 0, 0)]
+                fac_values += fac_invoice_line_vals
+                fac_invoice = moves.copy()
+                fac_invoice.write({'ref': f'{order.name} FAC', 'invoice_line_ids': fac_values})
+                order.invoices_created_by_policy += fac_invoice
+                fac_invoice.invoicing_policy_id = order.invoicing_policy_id
+                fac_invoice.policy_type = 'fac'
 
         return moves
     

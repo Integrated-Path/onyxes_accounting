@@ -6,8 +6,9 @@
 			<field name="model">sale.order</field>
 			<field name="inherit_id" ref="sale.view_order_form"/>
 			<field name="arch" type="xml">
-				<xpath expr="//field[@name='payment_term_id']" position="after">
-					<field name="invoicing_policy_id"/>
+				<xpath expr="//field[@name='payment_term_id']" position="replace">
+					<!-- <field name="payment_term_id" options="{'no_open':True,'no_create': True}" attrs="{'invisible': [('invoicing_policy_id', '!=', False)]}"/> -->
+					<field name="invoicing_policy_id" options="{'no_open':True,'no_create': True}"/>
 					<field name="invoices_created_by_policy" invisible="1"/>
 					<field name="new_invoice_status" invisible="1"/>
 				</xpath>
