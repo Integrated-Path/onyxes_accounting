@@ -30,6 +30,9 @@ class SaleOrder(models.Model):
             self.payment_term_id = False
         else:
             pass
+        
+     def _get_invoice_grouping_keys(self):
+        return ['company_id', 'partner_id', 'currency_id']
 
     def _create_invoices(self, grouped=False, final=False):
         """
