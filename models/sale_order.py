@@ -222,7 +222,7 @@ class SaleOrderLine(models.Model):
             'name': self.name,
             'product_id': self.product_id.id,
             'product_uom_id': self.product_uom.id,
-            'quantity': self.qty_delivered,
+            'quantity': self.product_uom_qty,
             'discount': policy_discount if policy_discount else self.discount,
             'price_unit': self.price_unit,
             'tax_ids': [(6, 0, self.tax_id.ids)],
