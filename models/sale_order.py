@@ -31,7 +31,7 @@ class SaleOrder(models.Model):
         else:
             pass
         
-     def _get_invoice_grouping_keys(self):
+    def _get_invoice_grouping_keys(self):
         return ['company_id', 'partner_id', 'currency_id']
 
     def action_cancel(self):
