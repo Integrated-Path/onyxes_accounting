@@ -31,6 +31,15 @@ class SaleOrder(models.Model):
         else:
             pass
 
+    def action_cancel(self):
+        for order in self:
+            for invoice in order.invoices_created_by_policy.filtered(lambda x: x.state == 'posted'):
+                invoice.button_cancel()
+            for invoice in order.invoice_ids.filtered(lambda x: x.state == 'posted'):
+                invoice.button_cancel()
+        res = super(SaleOrder, self).action_cancel()
+        return res
+
     def _create_invoices(self, grouped=False, final=False):
         """
         Create the invoice associated to the SO.
@@ -72,13 +81,13 @@ class SaleOrder(models.Model):
                     if pending_section:
                         if policy_discount:
                             invoice_vals['invoice_line_ids'].append(
-                                (0, 0, pending_section._prepare_invoice_line(policy_discount=policy_discount)))
+                                (0, 0, pending_section._prepare_invoice_line_policy(policy_discount=policy_discount)))
                         else:
                             invoice_vals['invoice_line_ids'].append((0, 0, pending_section._prepare_invoice_line()))
                         pending_section = None
                     if policy_discount:
                         invoice_vals['invoice_line_ids'].append(
-                            (0, 0, line._prepare_invoice_line(policy_discount=policy_discount)))
+                            (0, 0, line._prepare_invoice_line_policy(policy_discount=policy_discount)))
                     else:
                         invoice_vals['invoice_line_ids'].append((0, 0, line._prepare_invoice_line()))
 
@@ -166,13 +175,18 @@ class SaleOrder(models.Model):
                 fac_invoice.invoicing_policy_id = order.invoicing_policy_id
                 fac_invoice.policy_type = 'fac'
 
+        else:
+            order.invoice_ids += moves
+
         return moves
     
-    @api.constrains('invoice_status', 'invoicing_policy_id')
+    @api.constrains('invoice_status', 'invoicing_policy_id', 'state')
     def _get_new_invoice_status(self):
         for record in self:
-            if record.invoicing_policy_id and record.invoices_created_by_policy:
+            if record.invoicing_policy_id and record.invoices_created_by_policy and record.state == 'sale':
                 record.new_invoice_status = 'invoiced'
+            # elif record.invoicing_policy_id and record.invoices_created_by_policy:
+            #     record.new_invoice_status = record.invoice_status
             else:
                 record.new_invoice_status = record.invoice_status
 
@@ -195,6 +209,7 @@ class SaleOrderLine(models.Model):
             'product_id': self.product_id.id,
             'product_uom_id': self.product_uom.id,
             'quantity': self.qty_to_invoice,
+            # 'quantity': self.qty_to_invoice,
             'discount': policy_discount if policy_discount else self.discount,
             'price_unit': self.price_unit,
             'tax_ids': [(6, 0, self.tax_id.ids)],
@@ -219,7 +234,7 @@ class SaleOrderLine(models.Model):
             'name': self.name,
             'product_id': self.product_id.id,
             'product_uom_id': self.product_uom.id,
-            'quantity': self.qty_delivered,
+            'quantity': self.product_uom_qty,
             'discount': policy_discount if policy_discount else self.discount,
             'price_unit': self.price_unit,
             'tax_ids': [(6, 0, self.tax_id.ids)],
