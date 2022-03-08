@@ -3,11 +3,9 @@
 from odoo import models, fields, api
 from odoo.exceptions import UserError 
 
-
 class AccountInvoicingPolicy(models.Model):
     _name = "account.invoicing.policy"
     _description = "Invoicing Policy"
-    _order = "id"
 
     name = fields.Char(string='Policy Name', compute="_compute_policy_name")
     dac = fields.Float(string='DAC')
@@ -22,5 +20,7 @@ class AccountInvoicingPolicy(models.Model):
     @api.constrains('dac', 'pac', 'fac')
     def check_100(self):
         for record in self:
+            if record.dac <= 0:
+                raise UserError("DAC must have a value greater than zero")
             if record.dac + record.pac + record.fac != 100:
                 raise UserError("DAC + PAC + FAC should be equal to 100%")

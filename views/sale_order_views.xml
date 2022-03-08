@@ -6,18 +6,20 @@
 			<field name="model">sale.order</field>
 			<field name="inherit_id" ref="sale.view_order_form"/>
 			<field name="arch" type="xml">
-				<xpath expr="//field[@name='payment_term_id']" position="after">
-					<field name="invoicing_policy_id"/>
-					<field name="invoices_created_by_policy" invisible="1"/>
-					<field name="new_invoice_status" invisible="1"/>
-				</xpath>
-				
-				
-				<xpath expr="//button[3]" position="attributes">
+				<xpath expr="//button[@name='%(sale.action_view_sale_advance_payment_inv)d'][1]" position="attributes">
+					<attriute name="context">{'default_advance_payment_method': 'delivered'}</attriute>
 					<attribute name="attrs">{'invisible': ['|', ('new_invoice_status', '!=', 'to invoice')]}</attribute>
 				</xpath>
-				<xpath expr="//button[4]" position="attributes">
+				<xpath expr="//button[@name='%(sale.action_view_sale_advance_payment_inv)d'][2]" position="attributes">
+					<attribute name="context">{'default_advance_payment_method': 'delivered'}</attribute>
 					<attribute name="attrs">{'invisible': ['|', ('new_invoice_status', '!=', 'no'), ('state', '!=', 'sale')]}</attribute>
+				</xpath>
+
+				<xpath expr="//field[@name='payment_term_id']" position="replace">
+					<!-- <field name="payment_term_id" options="{'no_open':True,'no_create': True}" attrs="{'invisible': [('invoicing_policy_id', '!=', False)]}"/> -->
+					<field name="invoicing_policy_id" options="{'no_open':True,'no_create': True}"/>
+					<field name="invoices_created_by_policy" invisible="1"/>
+					<field name="new_invoice_status" invisible="1"/>
 				</xpath>
 
 			</field>

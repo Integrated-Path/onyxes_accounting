@@ -17,15 +17,31 @@ class SaleOrder(models.Model):
         ('to invoice', 'To Invoice'),
         ('no', 'Nothing to Invoice')
     ]
-    invoicing_policy_id = fields.Many2one("account.invoicing.policy")
+    invoicing_policy_id = fields.Many2one("account.invoicing.policy", readonly=True, states={'draft': [('readonly', False)] } )
     invoices_created_by_policy = fields.One2many(
         'account.move', 'policy_sale_order_id')
 
     new_invoice_status = fields.Selection(NEW_INVOICE_STATUS, 
         string='Invoice Status', compute='_get_new_invoice_status', readonly=True, copy=False, store=True)
 
+    @api.onchange("invoicing_policy_id")
+    def _handle_invoicing_policy_id_change(self):
+        if self.invoicing_policy_id:
+            self.payment_term_id = False
+        else:
+            pass
+        
     def _get_invoice_grouping_keys(self):
         return ['company_id', 'partner_id', 'currency_id']
+
+    def action_cancel(self):
+        for order in self:
+            for invoice in order.invoices_created_by_policy.filtered(lambda x: x.state == 'posted'):
+                invoice.button_cancel()
+            for invoice in order.invoice_ids.filtered(lambda x: x.state == 'posted'):
+                invoice.button_cancel()
+        res = super(SaleOrder, self).action_cancel()
+        return res
 
     def _create_invoices(self, grouped=False, final=False):
         """
@@ -51,6 +67,7 @@ class SaleOrder(models.Model):
 
             # Invoice values.
             invoice_vals = order._prepare_invoice()
+            invoice_vals['ref'] = f"{order.name} DAC"
 
             # Invoice line values (keep only necessary sections).
             for line in order.order_line:
@@ -67,13 +84,13 @@ class SaleOrder(models.Model):
                     if pending_section:
                         if policy_discount:
                             invoice_vals['invoice_line_ids'].append(
-                                (0, 0, pending_section._prepare_invoice_line(policy_discount=policy_discount)))
+                                (0, 0, pending_section._prepare_invoice_line_policy(policy_discount=policy_discount)))
                         else:
                             invoice_vals['invoice_line_ids'].append((0, 0, pending_section._prepare_invoice_line()))
                         pending_section = None
                     if policy_discount:
                         invoice_vals['invoice_line_ids'].append(
-                            (0, 0, line._prepare_invoice_line(policy_discount=policy_discount)))
+                            (0, 0, line._prepare_invoice_line_policy(policy_discount=policy_discount)))
                     else:
                         invoice_vals['invoice_line_ids'].append((0, 0, line._prepare_invoice_line()))
 
@@ -131,41 +148,48 @@ class SaleOrder(models.Model):
             moves.invoicing_policy_id = order.invoicing_policy_id
             moves.policy_type = 'dac'
 
-            for order in self:
-                pac_invoice_line_vals = []
-                for line in order.order_line:
-                    pac_policy_discount = 100.00 - order.invoicing_policy_id.pac
-                    pac_invoice_line_vals.append(
-                        (0, 0, line._prepare_invoice_line_policy(policy_discount=pac_policy_discount)))
-            pac_values = [(5, 0, 0)]
-            pac_values += pac_invoice_line_vals
-            pac_invoice = moves.copy()
-            pac_invoice.write({'invoice_line_ids': pac_values})
-            order.invoices_created_by_policy += pac_invoice
-            pac_invoice.invoicing_policy_id = order.invoicing_policy_id
-            pac_invoice.policy_type = 'pac'
+            if order.invoicing_policy_id.pac > 0:
+                for order in self:
+                    pac_invoice_line_vals = []
+                    for line in order.order_line:
+                        pac_policy_discount = 100.00 - order.invoicing_policy_id.pac
+                        pac_invoice_line_vals.append(
+                            (0, 0, line._prepare_invoice_line_policy(policy_discount=pac_policy_discount)))
+                pac_values = [(5, 0, 0)]
+                pac_values += pac_invoice_line_vals
+                pac_invoice = moves.copy()
+                pac_invoice.write({'ref': f'{order.name} PAC', 'invoice_line_ids': pac_values})
+                order.invoices_created_by_policy += pac_invoice
+                pac_invoice.invoicing_policy_id = order.invoicing_policy_id
+                pac_invoice.policy_type = 'pac'
 
-            for order in self:
-                fac_invoice_line_vals = []
-                for line in order.order_line:
-                    fac_policy_discount = 100.00 - order.invoicing_policy_id.fac
-                    fac_invoice_line_vals.append(
-                        (0, 0, line._prepare_invoice_line_policy(policy_discount=fac_policy_discount)))
-            fac_values = [(5, 0, 0)]
-            fac_values += fac_invoice_line_vals
-            fac_invoice = moves.copy()
-            fac_invoice.write({'invoice_line_ids': fac_values})
-            order.invoices_created_by_policy += fac_invoice
-            fac_invoice.invoicing_policy_id = order.invoicing_policy_id
-            fac_invoice.policy_type = 'fac'
+            if order.invoicing_policy_id.fac > 0:
+                for order in self:
+                    fac_invoice_line_vals = []
+                    for line in order.order_line:
+                        fac_policy_discount = 100.00 - order.invoicing_policy_id.fac
+                        fac_invoice_line_vals.append(
+                            (0, 0, line._prepare_invoice_line_policy(policy_discount=fac_policy_discount)))
+                fac_values = [(5, 0, 0)]
+                fac_values += fac_invoice_line_vals
+                fac_invoice = moves.copy()
+                fac_invoice.write({'ref': f'{order.name} FAC', 'invoice_line_ids': fac_values})
+                order.invoices_created_by_policy += fac_invoice
+                fac_invoice.invoicing_policy_id = order.invoicing_policy_id
+                fac_invoice.policy_type = 'fac'
+
+        else:
+            order.invoice_ids += moves
 
         return moves
     
-    @api.constrains('invoice_status', 'invoicing_policy_id')
+    @api.constrains('invoice_status', 'invoicing_policy_id', 'state')
     def _get_new_invoice_status(self):
         for record in self:
-            if record.invoicing_policy_id and record.invoices_created_by_policy:
+            if record.invoicing_policy_id and record.invoices_created_by_policy and record.state == 'sale':
                 record.new_invoice_status = 'invoiced'
+            # elif record.invoicing_policy_id and record.invoices_created_by_policy:
+            #     record.new_invoice_status = record.invoice_status
             else:
                 record.new_invoice_status = record.invoice_status
 
@@ -188,6 +212,7 @@ class SaleOrderLine(models.Model):
             'product_id': self.product_id.id,
             'product_uom_id': self.product_uom.id,
             'quantity': self.qty_to_invoice,
+            # 'quantity': self.qty_to_invoice,
             'discount': policy_discount if policy_discount else self.discount,
             'price_unit': self.price_unit,
             'tax_ids': [(6, 0, self.tax_id.ids)],
@@ -212,7 +237,7 @@ class SaleOrderLine(models.Model):
             'name': self.name,
             'product_id': self.product_id.id,
             'product_uom_id': self.product_uom.id,
-            'quantity': self.qty_delivered,
+            'quantity': self.product_uom_qty,
             'discount': policy_discount if policy_discount else self.discount,
             'price_unit': self.price_unit,
             'tax_ids': [(6, 0, self.tax_id.ids)],
