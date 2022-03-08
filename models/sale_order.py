@@ -24,6 +24,8 @@ class SaleOrder(models.Model):
     new_invoice_status = fields.Selection(NEW_INVOICE_STATUS, 
         string='Invoice Status', compute='_get_new_invoice_status', readonly=True, copy=False, store=True)
 
+    def _get_invoice_grouping_keys(self):
+        return ['company_id', 'partner_id', 'currency_id']
 
     def _create_invoices(self, grouped=False, final=False):
         """
