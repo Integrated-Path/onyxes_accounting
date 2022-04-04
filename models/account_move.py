@@ -20,8 +20,9 @@ class AccountMove(models.Model):
     @api.constrains('project_id')
     def _get_analytic_account(self):
         for record in self:
-            for line in record.invoice_line_ids:
-                line.analytic_account_id = record.project_id.analytic_account_id
+            if record.project_id:
+                for line in record.invoice_line_ids:
+                    line.analytic_account_id = record.project_id.analytic_account_id
     # OVERIDE
     def _stock_account_prepare_anglo_saxon_out_lines_vals(self):
         stock_account_move_lines = super(AccountMove, self)._stock_account_prepare_anglo_saxon_out_lines_vals()
