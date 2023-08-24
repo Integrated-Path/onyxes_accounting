@@ -1,5 +1,6 @@
 <odoo>
     <data>
+
         <record id="account_invoicing_policy_form" model="ir.ui.view">
             <field name="name">account_invoicing_policy.form</field>
             <field name="model">account.invoicing.policy</field>
@@ -26,7 +27,6 @@
                 </tree>
             </field>
         </record>
-
 
     </data>
 </odoo>

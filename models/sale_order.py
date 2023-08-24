@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from itertools import groupby
-from re import L
-
+from odoo import Command
 from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, UserError
 from odoo.tools import float_is_zero
@@ -20,8 +19,7 @@ class SaleOrder(models.Model):
     invoicing_policy_id = fields.Many2one("account.invoicing.policy", readonly=True, states={'draft': [('readonly', False)] } )
     invoices_created_by_policy = fields.One2many(
         'account.move', 'policy_sale_order_id')
-
-    new_invoice_status = fields.Selection(NEW_INVOICE_STATUS, 
+    new_invoice_status = fields.Selection(NEW_INVOICE_STATUS,
         string='Invoice Status', compute='_get_new_invoice_status', readonly=True, copy=False, store=True)
 
     @api.onchange("invoicing_policy_id")
@@ -30,7 +28,7 @@ class SaleOrder(models.Model):
             self.payment_term_id = False
         else:
             pass
-        
+
     def _get_invoice_grouping_keys(self):
         return ['company_id', 'partner_id', 'currency_id']
 
@@ -57,7 +55,6 @@ class SaleOrder(models.Model):
                 self.check_access_rule('write')
             except AccessError:
                 return self.env['account.move']
-
         precision = self.env['decimal.precision'].precision_get('Product Unit of Measure')
 
         # 1) Create invoices.
@@ -118,12 +115,12 @@ class SaleOrder(models.Model):
                     else:
                         ref_invoice_vals['invoice_line_ids'] += invoice_vals['invoice_line_ids']
                     origins.add(invoice_vals['invoice_origin'])
-                    payment_refs.add(invoice_vals['invoice_payment_ref'])
+                    payment_refs.add(invoice_vals['payment_reference'])
                     refs.add(invoice_vals['ref'])
                 ref_invoice_vals.update({
                     'ref': ', '.join(refs)[:2000],
                     'invoice_origin': ', '.join(origins),
-                    'invoice_payment_ref': len(payment_refs) == 1 and payment_refs.pop() or False,
+                    'payment_reference': len(payment_refs) == 1 and payment_refs.pop() or False,
                 })
                 new_invoice_vals_list.append(ref_invoice_vals)
             invoice_vals_list = new_invoice_vals_list
@@ -131,7 +128,9 @@ class SaleOrder(models.Model):
         # 3) Create invoices.
         # Manage the creation of invoices in sudo because a salesperson must be able to generate an invoice from a
         # sale order without "billing" access rights. However, he should not be able to create an invoice from scratch.
+        print("befree-----------------------",invoice_vals_list)
         moves = self.env['account.move'].sudo().with_context(default_type='out_invoice').create(invoice_vals_list)
+        print("moves------------------",moves)
         # 4) Some moves might actually be refunds: convert them if the total amount is negative
         # We do this after the moves have been created since we need taxes, etc. to know if the total
         # is actually negative or not
@@ -177,7 +176,6 @@ class SaleOrder(models.Model):
                 order.invoices_created_by_policy += fac_invoice
                 fac_invoice.invoicing_policy_id = order.invoicing_policy_id
                 fac_invoice.policy_type = 'fac'
-
         else:
             order.invoice_ids += moves
 
@@ -206,7 +204,7 @@ class SaleOrderLine(models.Model):
         """
         self.ensure_one()
         res = {
-            'display_type': self.display_type,
+            'display_type': self.display_type or 'product',
             'sequence': self.sequence,
             'name': self.name,
             'product_id': self.product_id.id,
@@ -215,10 +213,12 @@ class SaleOrderLine(models.Model):
             # 'quantity': self.qty_to_invoice,
             'discount': policy_discount if policy_discount else self.discount,
             'price_unit': self.price_unit,
-            'tax_ids': [(6, 0, self.tax_id.ids)],
-            'analytic_account_id': self.order_id.analytic_account_id.id,
-            'analytic_tag_ids': [(6, 0, self.analytic_tag_ids.ids)],
-            'sale_line_ids': [(4, self.id)],
+            'tax_ids': [Command.set(self.tax_id.ids)],
+            'analytic_distribution': self.analytic_distribution,
+            # 'analytic_account_id': self.order_id.analytic_account_id.id,
+            # 'analytic_tag_ids': [(6, 0, self.analytic_tag_ids.ids)],
+            'sale_line_ids': [Command.link(self.id)],
+            'is_downpayment': self.is_downpayment,
         }
         if self.display_type:
             res['account_id'] = False
@@ -232,7 +232,7 @@ class SaleOrderLine(models.Model):
         """
         self.ensure_one()
         res = {
-            'display_type': self.display_type,
+            'display_type': self.display_type or 'product',
             'sequence': self.sequence,
             'name': self.name,
             'product_id': self.product_id.id,
@@ -240,10 +240,12 @@ class SaleOrderLine(models.Model):
             'quantity': self.product_uom_qty,
             'discount': policy_discount if policy_discount else self.discount,
             'price_unit': self.price_unit,
-            'tax_ids': [(6, 0, self.tax_id.ids)],
-            'analytic_account_id': self.order_id.analytic_account_id.id,
-            'analytic_tag_ids': [(6, 0, self.analytic_tag_ids.ids)],
-            'sale_line_ids': [(4, self.id)],
+            'tax_ids': [Command.set(self.tax_id.ids)],
+            'analytic_distribution': self.analytic_distribution,
+            # 'analytic_account_id': self.order_id.analytic_account_id.id,
+            # 'analytic_tag_ids': [(6, 0, self.analytic_tag_ids.ids)],
+            'sale_line_ids': [Command.link(self.id)],
+            'is_downpayment': self.is_downpayment,
         }
         if self.display_type:
             res['account_id'] = False
