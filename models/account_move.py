@@ -20,7 +20,7 @@ class AccountMove(models.Model):
         for record in self:
             if record.project_id:
                 for line in record.invoice_line_ids:
-                    line.analytic_account_id = record.project_id.analytic_account_id
+                    line.analytic_distribution = {record.project_id.analytic_account_id.id: 100}
 
     # OVERIDE
     def _stock_account_prepare_anglo_saxon_out_lines_vals(self):
